@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f0;
+            color: #000;
+            overflow-x: hidden;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background-color: #f5f5f0;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: normal;
+            letter-spacing: 0.5px;
+        }
+
+        .title {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            font-weight: normal;
+            letter-spacing: 2px;
+        }
+
+        .info-link {
+            font-size: 16px;
+            text-decoration: none;
+            color: #000;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .info-link:hover {
+            opacity: 0.6;
+        }
+
+        .main-content {
+            position: relative;
+            height: 100vh;
+            margin-top: 60px;
+        }
+
+        .vertical-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+            background-color: #000;
+        }
+
+        .horizontal-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+            background-color: #000;
+        }
+
+        #p5-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+
+        .axis-label {
+            position: absolute;
+            font-size: 12px;
+            letter-spacing: 4px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+
+        .axis-label.left {
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .axis-label.right {
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+        .axis-label.bottom {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            writing-mode: horizontal-tb;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            padding: 20px 40px;
+            font-size: 13px;
+            line-height: 1.6;
+            font-style: italic;
+            background-color: #f5f5f0;
+        }
+
+        .footer-links {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .footer-links a {
+            color: #000;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .footer-links a:hover {
+            opacity: 0.6;
+        }
+
+        .archive-link {
+            position: fixed;
+            bottom: 20px;
+            right: 40px;
+            font-size: 13px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            background-color: #f5f5f0;
+        }
+
+        .archive-link a {
+            color: #000;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .archive-link a:hover {
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">Your Name</div>
+        <div class="title">FORM</div>
+        <div class="info-link">Info</div>
+    </header>
+
+    <div class="main-content">
+        <div class="vertical-line"></div>
+        <div class="horizontal-line"></div>
+        
+        <div class="axis-label left">NO YES ON</div>
+        <div class="axis-label right">HANDS ON</div>
+        <div class="axis-label bottom">TXT</div>
+
+        <!-- p5.js canvas for interactive dots -->
+        <div id="p5-canvas"></div>
+    </div>
+
+    <footer>
+        <div class="footer-links">
+            <a href="#print">Print</a>
+            <a href="#tool">Tool</a>
+            <a href="#typography">Typography</a>
+            <a href="#identity">Identity</a>
+            <a href="#motion">Motion</a>
+            <a href="#spatial">Spatial</a>
+        </div>
+    </footer>
+
+    <div class="archive-link">
+        <a href="#archive">Archive</a>
+    </div>
+
+    <script>
+        // p5.js sketch for draggable dots
+        let dots = [];
+        let draggedDot = null;
+        let offset = { x: 0, y: 0 };
+
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight - 60); // Account for header
+            canvas.parent('p5-canvas');
+            
+            // Initialize dots with original positions
+            const originalPositions = [
+                {x: windowWidth * 0.12, y: (windowHeight - 60) * 0.15},
+                {x: windowWidth * 0.13, y: (windowHeight - 60) * 0.23},
+                {x: windowWidth * 0.32, y: (windowHeight - 60) * 0.25},
+                {x: windowWidth * 0.42, y: (windowHeight - 60) * 0.18},
+                {x: windowWidth * 0.41, y: (windowHeight - 60) * 0.31},
+                {x: windowWidth * 0.49, y: (windowHeight - 60) * 0.40},
+                {x: windowWidth * 0.30, y: (windowHeight - 60) * 0.38},
+                {x: windowWidth * 0.21, y: (windowHeight - 60) * 0.50},
+                {x: windowWidth * 0.15, y: (windowHeight - 60) * 0.60},
+                {x: windowWidth * 0.11, y: (windowHeight - 60) * 0.68},
+                {x: windowWidth * 0.21, y: (windowHeight - 60) * 0.75},
+                {x: windowWidth * 0.72, y: (windowHeight - 60) * 0.18},
+                {x: windowWidth * 0.86, y: (windowHeight - 60) * 0.22},
+                {x: windowWidth * 0.57, y: (windowHeight - 60) * 0.35},
+                {x: windowWidth * 0.78, y: (windowHeight - 60) * 0.35},
+                {x: windowWidth * 0.92, y: (windowHeight - 60) * 0.44},
+                {x: windowWidth * 0.92, y: (windowHeight - 60) * 0.56},
+                {x: windowWidth * 0.72, y: (windowHeight - 60) * 0.68},
+                {x: windowWidth * 0.92, y: (windowHeight - 60) * 0.80},
+                {x: windowWidth * 0.46, y: (windowHeight - 60) * 0.68}
+            ];
+            
+            originalPositions.forEach(pos => {
+                dots.push({
+                    x: pos.x,
+                    y: pos.y,
+                    size: 12,
+                    isHovered: false,
+                    isDragging: false
+                });
+            });
+        }
+
+        function draw() {
+            clear();
+            
+            // Draw dots
+            dots.forEach(dot => {
+                // Check if mouse is over dot
+                let distance = dist(mouseX, mouseY, dot.x, dot.y);
+                dot.isHovered = distance < dot.size / 2;
+                
+                // Visual feedback
+                if (dot.isDragging) {
+                    fill(0, 100); // Slightly transparent when dragging
+                    stroke(0);
+                    strokeWeight(2);
+                } else if (dot.isHovered) {
+                    fill(0, 150); // Slightly transparent on hover
+                    noStroke();
+                } else {
+                    fill(0); // Solid black
+                    noStroke();
+                }
+                
+                // Draw dot
+                ellipse(dot.x, dot.y, dot.size);
+                
+                // Scale effect on hover
+                if (dot.isHovered && !dot.isDragging) {
+                    push();
+                    translate(dot.x, dot.y);
+                    scale(1.5);
+                    fill(0, 100);
+                    ellipse(0, 0, dot.size);
+                    pop();
+                }
+            });
+        }
+
+        function mousePressed() {
+            // Check if mouse is over any dot
+            for (let i = dots.length - 1; i >= 0; i--) {
+                let dot = dots[i];
+                let distance = dist(mouseX, mouseY, dot.x, dot.y);
+                
+                if (distance < dot.size / 2) {
+                    draggedDot = dot;
+                    dot.isDragging = true;
+                    offset.x = mouseX - dot.x;
+                    offset.y = mouseY - dot.y;
+                    break;
+                }
+            }
+        }
+
+        function mouseDragged() {
+            if (draggedDot) {
+                draggedDot.x = mouseX - offset.x;
+                draggedDot.y = mouseY - offset.y;
+            }
+        }
+
+        function mouseReleased() {
+            if (draggedDot) {
+                draggedDot.isDragging = false;
+                draggedDot = null;
+            }
+        }
+
+        function doubleClicked() {
+            // Check if double-clicked on a dot for project details
+            for (let i = dots.length - 1; i >= 0; i--) {
+                let dot = dots[i];
+                let distance = dist(mouseX, mouseY, dot.x, dot.y);
+                
+                if (distance < dot.size / 2) {
+                    // Open new page with project details
+                    window.open('project-details.html', '_blank');
+                    break;
+                }
+            }
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight - 60);
+        }
+
+        // Save and load functions
+        function saveDots() {
+            const dotsData = dots.map(dot => ({
+                x: dot.x,
+                y: dot.y
+            }));
+            localStorage.setItem('portfolioDots', JSON.stringify(dotsData));
+            console.log('Dots saved!');
+        }
+
+        function loadDots() {
+            const savedData = localStorage.getItem('portfolioDots');
+            if (savedData) {
+                const dotsData = JSON.parse(savedData);
+                if (dotsData.length === dots.length) {
+                    dotsData.forEach((pos, index) => {
+                        if (dots[index]) {
+                            dots[index].x = pos.x;
+                            dots[index].y = pos.y;
+                        }
+                    });
+                    console.log('Dots loaded!');
+                }
+            }
+        }
+
+        function resetDots() {
+            const originalPositions = [
+                {x: windowWidth * 0.12, y: (windowHeight - 60) * 0.15},
+                {x: windowWidth * 0.13, y: (windowHeight - 60) * 0.23},
+                {x: windowWidth * 0.32, y: (windowHeight - 60) * 0.25},
+                {x: windowWidth * 0.42, y: (windowHeight - 60) * 0.18},
+                {x: windowWidth * 0.41, y: (windowHeight - 60) * 0.31},
+                {x: windowWidth * 0.49, y: (windowHeight - 60) * 0.40},
+                {x: windowWidth * 0.30, y: (windowHeight - 60) * 0.38},
+                {x: windowWidth * 0.21, y: (windowHeight - 60) * 0.50},
+                {x: windowWidth * 0.15, y: (windowHeight - 60) * 0.60},
+                {x: windowWidth * 0.11, y: (windowHeight - 60) * 0.68},
+                {x: windowWidth * 0.21, y: (windowHeight - 60) * 0.75},
+                {x: windowWidth * 0.72, y: (windowHeight - 60) * 0.18},
+                {x: windowWidth * 0.86, y: (windowHeight - 60) * 0.22},
+                {x: windowWidth * 0.57, y: (windowHeight - 60) * 0.35},
+                {x: windowWidth * 0.78, y: (windowHeight - 60) * 0.35},
+                {x: windowWidth * 0.92, y: (windowHeight - 60) * 0.44},
+                {x: windowWidth * 0.92, y: (windowHeight - 60) * 0.56},
+                {x: windowWidth * 0.72, y: (windowHeight - 60) * 0.68},
+                {x: windowWidth * 0.92, y: (windowHeight - 60) * 0.80},
+                {x: windowWidth * 0.46, y: (windowHeight - 60) * 0.68}
+            ];
+            
+            originalPositions.forEach((pos, index) => {
+                if (dots[index]) {
+                    dots[index].x = pos.x;
+                    dots[index].y = pos.y;
+                }
+            });
+            console.log('Dots reset to original positions!');
+        }
+
+        // Keyboard shortcuts
+        function keyPressed() {
+            if (key === 's' || key === 'S') {
+                saveDots();
+            } else if (key === 'l' || key === 'L') {
+                loadDots();
+            } else if (key === 'r' || key === 'R') {
+                resetDots();
+            }
+        }
+
+        // Info link interaction
+        document.querySelector('.info-link').addEventListener('click', function() {
+            alert('Info page would appear here\n\n사용법:\n- 점을 드래그해서 이동\n- 점을 더블클릭하면 새 페이지 열림\n\n키보드 단축키:\nS - 점 위치 저장\nL - 점 위치 불러오기\nR - 원래 위치로 리셋');
+        });
+    </script>
+</body>
+</html>
