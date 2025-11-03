@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>클러스터 시각화</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .tooltip.active {
+            opacity: 1;
+        }
+        .tooltip p {
+            margin: 0;
+        }
+        .tooltip-title {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .tooltip-content {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body class="bg-white">
+    <div class="w-full min-h-screen p-6">
+        <div class="max-w-7xl mx-auto flex flex-col" style="height: calc(100vh - 48px);">
+            <div class="mb-4">
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">클러스터 시각화</h1>
+                <p class="text-sm text-gray-600" id="stats">
+                    데이터 로딩 중...
+                </p>
+            </div>
+            
+            <div class="flex-1 bg-white rounded-lg border border-gray-200 p-4" id="chart-container">
+                <svg id="scatter-chart" width="100%" height="100%"></svg>
+            </div>
+            
+            <div class="mt-4 grid grid-cols-6 gap-2" id="cluster-legend"></div>
+
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 class="text-sm font-semibold text-blue-900 mb-2">💡 실제 데이터 적용 방법</h3>
+                <p class="text-xs text-blue-800 mb-2">
+                    현재는 샘플 데이터로 시각화되어 있습니다. 실제 데이터 형식:
+                </p>
+                <code class="block bg-white p-2 rounded text-xs text-gray-800 border border-blue-200">
+                    [{ x: 10.5, y: -20.3, cluster: 0 }, ...]
+                </code>
+                <p class="text-xs text-blue-700 mt-2">
+                    • x, y: 좌표값 (숫자)<br />
+                    • cluster: 클러스터 ID (0부터 시작하는 정수)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip">
+        <p class="tooltip-title" id="tooltip-title"></p>
+        <p class="tooltip-content" id="tooltip-content"></p>
+    </div>
+
+    <script>
+        // 샘플 데이터 생성
+        const generateClusterData = () => {
+            const clusters = [
+                { id: 0, center: [-35, -15], count: 400, color: '#1e3a8a' },
+                { id: 1, center: [-25, 25], count: 350, color: '#1e40af' },
+                { id: 2, center: [-10, -25], count: 300, color: '#2563eb' },
+                { id: 3, center: [-15, 25], count: 450, color: '#0891b2' },
+                { id: 4, center: [0, 0], count: 500, color: '#7c2d12' },
+                { id: 5, center: [10, 35], count: 600, color: '#1e3a5f' },
+                { id: 6, center: [0, -25], count: 400, color: '#422006' },
+                { id: 7, center: [10, -15], count: 350, color: '#134e4a' },
+                { id: 8, center: [25, 15], count: 400, color: '#365314' },
+                { id: 9, center: [30, 30], count: 450, color: '#4d7c0f' },
+                { id: 10, center: [-5, -35], count: 300, color: '#92400e' },
+            ];
+            
+            const allPoints = [];
+            clusters.forEach(cluster => {
+                for (let i = 0; i < cluster.count; i++) {
+                    const angle = Math.random() * 2 * Math.PI;
+                    const radius = Math.random() * 8 + Math.random() * 4;
+                    const x = cluster.center[0] + Math.cos(angle) * radius;
+                    const y = cluster.center[1] + Math.sin(angle) * radius;
+                    
+                    allPoints.push({
+                        x: x,
+                        y: y,
+                        cluster: cluster.id,
+                        color: cluster.color,
+                        value: cluster.id
+                    });
+                }
+            });
+            
+            return { points: allPoints, clusters: clusters };
+        };
+
+        // 데이터 생성
+        const { points: data, clusters } = generateClusterData();
+
+        // 클러스터 통계 계산
+        const clusterStats = data.reduce((acc, point) => {
+            acc[point.cluster] = (acc[point.cluster] || 0) + 1;
+            return acc;
+        }, {});
+
+        // 통계 업데이트
+        document.getElementById('stats').textContent = 
+            `총 ${data.length.toLocaleString()}개 데이터 포인트, ${Object.keys(clusterStats).length}개 클러스터`;
+
+        // 차트 설정
+        const margin = { top: 20, right: 80, bottom: 60, left: 60 };
+        const container = d3.select('#chart-container');
+        const containerRect = container.node().getBoundingClientRect();
+        const width = containerRect.width - margin.left - margin.right;
+        const height = containerRect.height - margin.top - margin.bottom;
+
+        // SVG 설정
+        const svg = d3.select('#scatter-chart')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom);
+
+        const g = svg.append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        // 스케일 설정
+        const xScale = d3.scaleLinear()
+            .domain([-50, 50])
+            .range([0, width]);
+
+        const yScale = d3.scaleLinear()
+            .domain([-50, 50])
+            .range([height, 0]);
+
+        // 축 설정
+        const xAxis = d3.axisBottom(xScale).ticks(10);
+        const yAxis = d3.axisLeft(yScale).ticks(10);
+
+        g.append('g')
+            .attr('transform', `translate(0,${height})`)
+            .call(xAxis)
+            .selectAll('text')
+            .style('font-size', '12px');
+
+        g.append('g')
+            .call(yAxis)
+            .selectAll('text')
+            .style('font-size', '12px');
+
+        // 호버 상태 관리
+        let hoveredCluster = null;
+        const tooltip = d3.select('#tooltip');
+
+        // 포인트 그리기
+        const dots = g.selectAll('.dot')
+            .data(data)
+            .enter()
+            .append('circle')
+            .attr('class', 'dot')
+            .attr('cx', d => xScale(d.x))
+            .attr('cy', d => yScale(d.y))
+            .attr('r', 2.5)
+            .attr('fill', d => d.color)
+            .attr('fill-opacity', 0.7)
+            .attr('stroke', 'none')
+            .attr('cursor', 'pointer')
+            .on('mouseenter', function(event, d) {
+                hoveredCluster = d.cluster;
+                updateDots();
+                
+                tooltip
+                    .classed('active', true)
+                    .html(`<p class="tooltip-title">클러스터 ${d.cluster}</p>
+                           <p class="tooltip-content">X: ${d.x.toFixed(2)}, Y: ${d.y.toFixed(2)}</p>`);
+            })
+            .on('mousemove', function(event) {
+                tooltip
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px');
+            })
+            .on('mouseleave', function() {
+                hoveredCluster = null;
+                updateDots();
+                tooltip.classed('active', false);
+            });
+
+        // 점 업데이트 함수
+        function updateDots() {
+            dots
+                .attr('r', d => hoveredCluster === d.cluster ? 4 : 2.5)
+                .attr('fill-opacity', d => hoveredCluster === d.cluster ? 1 : 0.7)
+                .attr('stroke', d => hoveredCluster === d.cluster ? '#ffffff' : 'none')
+                .attr('stroke-width', d => hoveredCluster === d.cluster ? 1 : 0);
+        }
+
+        // 범례 생성
+        const legendContainer = d3.select('#cluster-legend');
+        const legendItems = Object.keys(clusterStats).map(id => parseInt(id));
+
+        legendItems.forEach(clusterId => {
+            const clusterData = clusters.find(c => c.id === clusterId);
+            const item = legendContainer
+                .append('div')
+                .attr('class', 'p-2 rounded border border-gray-200 cursor-pointer transition-all')
+                .on('mouseenter', function() {
+                    hoveredCluster = clusterId;
+                    updateDots();
+                    d3.select(this)
+                        .classed('border-gray-200', false)
+                        .classed('border-gray-800', true)
+                        .classed('shadow-md', true);
+                })
+                .on('mouseleave', function() {
+                    hoveredCluster = null;
+                    updateDots();
+                    d3.select(this)
+                        .classed('border-gray-800', false)
+                        .classed('shadow-md', false)
+                        .classed('border-gray-200', true);
+                });
+
+            const content = item.append('div').attr('class', 'flex items-center gap-2');
+            
+            content.append('div')
+                .attr('class', 'w-4 h-4 rounded')
+                .style('background-color', clusterData.color);
+
+            const textDiv = content.append('div');
+            textDiv.append('p')
+                .attr('class', 'text-xs font-medium')
+                .text(`클러스터 ${clusterId}`);
+            textDiv.append('p')
+                .attr('class', 'text-xs text-gray-600')
+                .text(`${clusterStats[clusterId]}개`);
+        });
+
+        // 윈도우 리사이즈 처리
+        function resizeChart() {
+            const containerRect = container.node().getBoundingClientRect();
+            const newWidth = containerRect.width - margin.left - margin.right;
+            const newHeight = containerRect.height - margin.top - margin.bottom;
+
+            xScale.range([0, newWidth]);
+            yScale.range([newHeight, 0]);
+
+            svg.attr('width', newWidth + margin.left + margin.right)
+               .attr('height', newHeight + margin.top + margin.bottom);
+
+            g.select('.x-axis').remove();
+            g.select('.y-axis').remove();
+
+            g.append('g')
+                .attr('class', 'x-axis')
+                .attr('transform', `translate(0,${newHeight})`)
+                .call(xAxis)
+                .selectAll('text')
+                .style('font-size', '12px');
+
+            g.append('g')
+                .attr('class', 'y-axis')
+                .call(yAxis)
+                .selectAll('text')
+                .style('font-size', '12px');
+
+            dots
+                .attr('cx', d => xScale(d.x))
+                .attr('cy', d => yScale(d.y));
+        }
+
+        window.addEventListener('resize', resizeChart);
+    </script>
+</body>
+</html>
+
